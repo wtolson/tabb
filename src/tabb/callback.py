@@ -210,11 +210,11 @@ class LazyCallback(Callback[P, T]):
 
     @property
     def name(self) -> str:
-        _, _, name = self.path.rpartition(".")
+        _, _, name = self.path.rpartition(":")
         return name
 
     def resolve(self) -> Callable[P, T]:
-        module_name, _, callback_name = self.path.rpartition(".")
+        module_name, _, callback_name = self.path.rpartition(":")
 
         try:
             module = importlib.import_module(module_name)
