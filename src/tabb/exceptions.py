@@ -192,7 +192,7 @@ class MissingParameter(BadParameter):
         return f"Missing {self.param_type}."
 
 
-class UnexpetedParameter(UsageError):  # noqa: N818
+class UnexpectedParameter(UsageError):  # noqa: N818
     def __init__(
         self,
         arg: str,

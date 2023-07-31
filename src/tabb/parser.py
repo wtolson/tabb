@@ -9,7 +9,7 @@ from difflib import get_close_matches
 from typing import Any, Generic, Literal, NoReturn, TypeVar
 
 from tabb.context import Context
-from tabb.exceptions import UnexpetedParameter
+from tabb.exceptions import UnexpectedParameter
 from tabb.nargs import IntNArgs, NArgs, VariadicNArgs
 from tabb.parameter import (
     ArgumentParameter,
@@ -275,7 +275,7 @@ class Parser:
             if not state.args:
                 state.reset_unused_args()
             possibilities = self._get_possible_matches(ctx, state)
-            raise UnexpetedParameter(state.args.peek(), possibilities=possibilities)
+            raise UnexpectedParameter(state.args.peek(), possibilities=possibilities)
 
         state.reset_unused_args()
         return values, list(state.args)
@@ -319,7 +319,7 @@ class Parser:
                     best_match = state
                 continue
 
-            except UnexpetedParameter as error:
+            except UnexpectedParameter as error:
                 state.push_arg(error.arg)
 
             return state
@@ -530,7 +530,7 @@ class Parser:
             try:
                 param = self.short_flags[short_flag]
             except KeyError:
-                raise UnexpetedParameter(arg) from None
+                raise UnexpectedParameter(arg) from None
 
             self._push_frame(
                 ctx=ctx,
@@ -555,7 +555,7 @@ class Parser:
         try:
             param = self.long_flags[flag]
         except KeyError:
-            raise UnexpetedParameter(arg) from None
+            raise UnexpectedParameter(arg) from None
 
         self._push_frame(
             ctx=ctx,

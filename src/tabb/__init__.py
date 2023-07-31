@@ -10,7 +10,7 @@ from tabb.exceptions import (
     Help,
     MissingParameter,
     TabbError,
-    UnexpetedParameter,
+    UnexpectedParameter,
     UsageError,
 )
 from tabb.group import Group
@@ -56,7 +56,7 @@ __all__ = [
     "Range",
     "Secret",
     "TabbError",
-    "UnexpetedParameter",
+    "UnexpectedParameter",
     "UsageError",
     "Validate",
 ]
