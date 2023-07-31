@@ -74,8 +74,15 @@ class IntNArgs(NArgs):
         return IntNArgs(self.value - 1)
 
     def format_metavar(self, metavar: str) -> str:
+        if self.value == 0:
+            return ""
+
+        if self.value == 1:
+            return metavar
+
         if self.value <= 16 // len(metavar):
             return " ".join(repeat(metavar, self.value))
+
         return f"{metavar}{{{self.value}}}"
 
     def __str__(self) -> str:
