@@ -18,9 +18,9 @@ from tabb.callback import Callback, create_callback
 from tabb.context import Context
 from tabb.exceptions import (
     Abort,
-    TabbError,
     Exit,
     Help,
+    TabbError,
 )
 from tabb.formatter import HelpFormatter, make_default_short_help
 from tabb.parameter import OptionParameter, ParameterGroup
@@ -292,7 +292,9 @@ class BaseCommand(abc.ABC, Generic[T]):
             auto_config_prefix=auto_config_prefix,
             auto_envvar_prefix=auto_envvar_prefix,
         )
-        return self.invoke(ctx)
+
+        with ctx:
+            return self.invoke(ctx)
 
     def main(
         self,

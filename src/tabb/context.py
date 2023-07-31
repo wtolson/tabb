@@ -1,7 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING, Any, Generic, NoReturn, TypeVar
+from contextlib import AbstractContextManager, ExitStack
+from threading import local
+from types import TracebackType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Literal,
+    NoReturn,
+    ParamSpec,
+    TypeVar,
+    cast,
+    overload,
+)
 
 from tabb.config import Config
 from tabb.exceptions import Abort, Exit, UsageError
@@ -14,12 +27,47 @@ if TYPE_CHECKING:
 
 
 T = TypeVar("T")
+V = TypeVar("V")
+P = ParamSpec("P")
 
 
 class DependencyCache:
     def __init__(self) -> None:
         self.callbacks: dict[Callable[..., Any], Callable[[Context[Any]], Any]] = {}
         self.values: dict[Callable[[Context[Any]], Any], Any] = {}
+
+
+_local = local()
+
+
+@overload
+def get_current_context(silent: Literal[False] = False) -> Context[Any]:
+    ...
+
+
+@overload
+def get_current_context(silent: bool = ...) -> Context[Any] | None:
+    ...
+
+
+def get_current_context(silent: bool = False) -> Context[Any] | None:
+    try:
+        return cast("Context", _local.stack[-1])
+    except (AttributeError, IndexError) as error:
+        if not silent:
+            raise RuntimeError("There is no active click context.") from error
+
+    return None
+
+
+def push_context(ctx: Context[Any]) -> None:
+    """Pushes a new context to the current stack."""
+    _local.__dict__.setdefault("stack", []).append(ctx)
+
+
+def pop_context() -> None:
+    """Removes the top level from the stack."""
+    _local.stack.pop()
 
 
 class Context(Generic[T]):
@@ -69,6 +117,9 @@ class Context(Generic[T]):
         else:
             self.dependencies = parent.dependencies
 
+        self._depth = 0
+        self._exit_stack = ExitStack()
+
     @property
     def command_path(self) -> str:
         if self.parent is None:
@@ -94,8 +145,35 @@ class Context(Generic[T]):
     def abort(self) -> NoReturn:
         raise Abort()
 
-    def exit(self, code: int = 0) -> NoReturn:  # noqa: A003
+    def exit(self, code: int = 0) -> NoReturn:
         raise Exit(code)
 
     def fail(self, message: str) -> NoReturn:
         raise UsageError(message, self)
+
+    def with_resource(self, context_manager: AbstractContextManager[V]) -> V:
+        return self._exit_stack.enter_context(context_manager)
+
+    def call_on_close(self, fn: Callable[P, V]) -> Callable[P, V]:
+        return self._exit_stack.callback(fn)
+
+    def close(self) -> None:
+        self._exit_stack.close()
+        # In case the context is reused, create a new exit stack.
+        self._exit_stack = ExitStack()
+
+    def __enter__(self) -> Context[T]:
+        self._depth += 1
+        push_context(self)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self._depth = min(self._depth - 1, 0)
+        if self._depth == 0:
+            self.close()
+        pop_context()

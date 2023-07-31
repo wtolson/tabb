@@ -249,5 +249,8 @@ class Group(BaseCommand[T]):
 
             ctx.fail(msg)
 
+
         sub_ctx = command.make_context(command_name, args, ctx.environ, ctx.config, ctx)
-        return command.invoke(sub_ctx)
+
+        with sub_ctx:
+            return command.invoke(sub_ctx)
