@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, ParamSpec, TypeVar, overload
 
+from tabb.base import BaseCommand
 from tabb.command import Command
 from tabb.group import Group
 
@@ -56,6 +57,7 @@ def group(callback: Callable[..., Any], /) -> Group[Any]:
 @overload
 def group(
     name: str | None = None,
+    commands: Mapping[str, BaseCommand[T]] | Sequence[BaseCommand[T]] | None = None,
     *,
     add_help_option: bool = True,
     deprecated: bool = False,
