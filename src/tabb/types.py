@@ -23,14 +23,14 @@ class Secret(str):
 
 @dataclasses.dataclass()
 class Length:
-    min: int | None = None  # noqa: A003
-    max: int | None = None  # noqa: A003
+    min: int | None = None
+    max: int | None = None
 
 
 @dataclasses.dataclass()
 class Range:
-    min: int | float | None = None  # noqa: A003
-    max: int | float | None = None  # noqa: A003
+    min: int | float | None = None
+    max: int | float | None = None
     max_open: bool = False
     min_open: bool = False
     clamp: bool = False

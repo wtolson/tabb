@@ -122,7 +122,7 @@ select = [
 ]
 ignore = [
   # Allow shadowing builtins
-  "A002",
+  "A002", "A003",
   # Allow unused arguments
   "ARG002",
   # Allow non-abstract empty methods in abstract base classes
