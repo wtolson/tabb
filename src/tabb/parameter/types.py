@@ -5,10 +5,13 @@ import dataclasses
 import operator
 import os
 import pathlib
+import sys
 import typing
 from collections.abc import Callable, Hashable, Mapping, Sequence, Sized
+from os import PathLike
 from types import UnionType
 from typing import (
+    IO,
     TYPE_CHECKING,
     Any,
     Generic,
@@ -24,7 +27,7 @@ from typing import (
 from tabb.exceptions import BadParameter, Help
 from tabb.missing import _MISSING_TYPE, MISSING
 from tabb.nargs import IntNArgs, NArgs, NArgsLiteral, VariadicNArgs
-from tabb.utils import split_csv
+from tabb.utils import safecall, split_csv
 
 if TYPE_CHECKING:
     from tabb.context import Context
@@ -716,12 +719,21 @@ class Path(Scalar[pathlib.Path]):
             return value
         return self.parse(value)
 
+    def _validate_dash(self) -> bool:
+        if not self.allow_dash:
+            self.fail("'-' is not allowed.")
+
+        if self.executable:
+            self.fail("Path must be executable.")
+
+        return True
+
     def validate(self, value: Any) -> TypeGuard[pathlib.Path]:
         if not isinstance(value, pathlib.Path):
             self.fail("Expected path value.")
 
-        if not self.allow_dash and value == pathlib.Path("-"):
-            self.fail("'-' is not allowed.")
+        if value == pathlib.Path("-"):
+            return self._validate_dash()
 
         if self.exists and not value.exists():
             self.fail("Path must exist.")
@@ -741,6 +753,90 @@ class Path(Scalar[pathlib.Path]):
         if self.executable and not os.access(value, os.X_OK):
             self.fail("Path must be executable.")
 
+        return True
+
+
+class File(ParameterType[IO[Any]]):
+    def __init__(
+        self,
+        mode: str = "r",
+        encoding: str = "utf-8",
+        errors: str = "strict",
+        default: int | str | bytes | PathLike[str] | PathLike[bytes] | None = None,
+        allow_overwrite: bool = True,
+        close: bool | None = None,
+    ) -> None:
+        super().__init__()
+        self.mode = mode
+        self.encoding = encoding
+        self.errors = errors
+        self.default = default
+        self.allow_overwrite = allow_overwrite
+        self.close = close
+
+    @property
+    def name(self) -> str:
+        return f"File[{self.mode!r}]"
+
+    def format_value(self, value: IO[Any]) -> str:
+        if hasattr(value, "name"):
+            if value.name in ("<stdin>", "<stdout>"):
+                return "-"
+
+            return value.name
+
+        return repr(value)
+
+    def has_default(self) -> bool:
+        return self.default is not None
+
+    def matches(self, arg: ParameterArg) -> bool:
+        return arg.value is not None
+
+    def open(self, value: str) -> IO[Any]:
+        if os.fsdecode(value) == "-":
+            if any(m in self.mode for m in ["w", "a", "x"]):
+                if "b" in self.mode:
+                    return sys.stdout.buffer
+                return sys.stdout
+
+            if "b" in self.mode:
+                return sys.stdin.buffer
+            return sys.stdin
+
+        result = open(value, self.mode, encoding=self.encoding, errors=self.errors)
+
+        from tabb.context import get_current_context
+
+        ctx = get_current_context(silent=True)
+
+        if ctx is not None:
+            ctx.call_on_close(safecall(result.close))
+
+        return result
+
+    def process_args(self, args: list[ParameterArg]) -> IO[Any] | _MISSING_TYPE:
+        if not args:
+            if not self.default:
+                return MISSING
+            return self.open(self.default)
+
+        if len(args) != 1 and not self.allow_overwrite:
+            self.fail("Parameter already set.")
+
+        return self.open(args[-1])
+
+    def process_config(self, value: object) -> IO[Any]:
+        if not isinstance(value, str):
+            self.fail("Config value must be a string.")
+        return self.open(value)
+
+    def parse_envvar(self, value: str) -> IO[Any]:
+        return self.open(value)
+
+    def validate(self, value: Any) -> TypeGuard[IO[Any]]:
+        if not (hasattr(value, "read") or hasattr(value, "write")):
+            self.fail("Expected file-like object.")
         return True
 
 
@@ -969,7 +1065,6 @@ class HelpFlag(ParameterType[NoReturn]):
 
 
 # TODO: add types:
-# - file
 # - url
 # - uuid
 # - enum

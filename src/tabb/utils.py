@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
+from functools import update_wrapper
 from shlex import shlex
 from types import ModuleType
-from typing import Any, TextIO, cast
+from typing import Any, ParamSpec, TextIO, TypeVar, cast
+
+P = ParamSpec("P")
+R = TypeVar("R")
+D = TypeVar("D")
 
 
 def to_kebab(name: str) -> str:
@@ -88,3 +94,19 @@ def pacify_flush(file: TextIO) -> TextIO:
     resulting from ``.flush()`` being called on a broken pipe.
     """
     return cast(TextIO, PacifyFlushWrapper(file))
+
+
+def safecall(
+    fn: Callable[P, R],
+    default: D = None,
+    exceptions: tuple[type[BaseException], ...] = (Exception,),
+) -> Callable[P, R | D]:
+    "Wraps a function so that it swallows exceptions."
+
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | D:
+        try:
+            return fn(*args, **kwargs)
+        except exceptions:
+            return default
+
+    return update_wrapper(wrapper, fn)
