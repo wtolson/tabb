@@ -15,7 +15,7 @@ from tabb.exceptions import (
 )
 from tabb.group import Group
 from tabb.missing import MISSING, is_missing
-from tabb.nargs import Nargs, NArgsLiteral
+from tabb.nargs import NArgs, NArgsLiteral
 from tabb.types import (
     Argument,
     Choices,
@@ -50,7 +50,7 @@ __all__ = [
     "Matches",
     "MISSING",
     "MissingParameter",
-    "Nargs",
+    "NArgs",
     "NArgsLiteral",
     "Option",
     "Range",
