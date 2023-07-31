@@ -230,6 +230,11 @@ class Scalar(ParameterType[ValueType]):
 
         return self.process_arg(args[-1])
 
+    def process_config(self, value: object) -> object:
+        if isinstance(value, str):
+            return self.parse(value)
+        return super().process_config(value)
+
     def parse_envvar(self, value: str) -> ValueType:
         return self.parse(value)
 
