@@ -798,7 +798,10 @@ class File(ParameterType[IO[Any]]):
     def matches(self, arg: ParameterArg) -> bool:
         return arg.value is not None
 
-    def open(self, value: str) -> IO[Any]:
+    def open(self, value: str | None) -> IO[Any]:
+        if value is None:
+            self.fail("File path cannot be None.")
+
         if os.fsdecode(value) == "-":
             if any(m in self.mode for m in ["w", "a", "x"]):
                 if "b" in self.mode:
@@ -829,7 +832,7 @@ class File(ParameterType[IO[Any]]):
         if len(args) != 1 and not self.allow_overwrite:
             self.fail("Parameter already set.")
 
-        return self.open(args[-1])
+        return self.open(args[-1].value)
 
     def process_config(self, value: object) -> IO[Any]:
         if not isinstance(value, str):
