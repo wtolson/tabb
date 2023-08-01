@@ -82,7 +82,7 @@ class ParameterType(abc.ABC, Generic[ValueType]):
         return list(flags), []
 
     def format_value(self, value: ValueType) -> str:
-        return repr(value)
+        return str(value)
 
     def fail(
         self,
@@ -491,9 +491,6 @@ class List(SequenceType[ValueType], ParameterType[list[ValueType]]):
 class Tuple(SequenceType[ValueType], ParameterType[list[ValueType]]):
     def _cast(self, value: Sequence[ValueType]) -> tuple[ValueType, ...]:
         return tuple(value)
-
-    def format_value(self, value: Sequence[ValueType]) -> str:
-        return f"[{super().format_value(value)}]"
 
     def process_args(self, args: list[ParameterArg]) -> tuple[ValueType, ...]:
         return self._cast(super().process_args(args))
