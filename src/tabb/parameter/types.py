@@ -122,9 +122,12 @@ class TypeAdapter(ParameterType[ValueType]):
         self.type = type
         super().__init__()
 
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} type={self.type.name}>"
+
     @property
     def name(self) -> str:
-        return f"<{type(self).__name__} type={self.type.name}>"
+        return self.type.name
 
     @property
     def nargs(self) -> NArgs:
@@ -195,9 +198,7 @@ class Scalar(ParameterType[ValueType]):
     @property
     def name(self) -> str:
         # Return name if type is builtin
-        if self.type.__module__ == "builtins":
-            return self.type.__name__.lower()
-        return repr(self.type)
+        return self.type.__name__
 
     def matches(self, arg: ParameterArg) -> bool:
         if arg.value is None:
@@ -266,10 +267,6 @@ class Bool(Scalar[bool]):
     def __init__(self, allow_overwrite: bool = False) -> None:
         super().__init__(bool, allow_overwrite=allow_overwrite)
 
-    @property
-    def name(self) -> str:
-        return "bool"
-
     def format_value(self, value: bool) -> str:
         return "true" if value else "false"
 
@@ -297,7 +294,7 @@ class Flag(Bool):
 
     @property
     def name(self) -> str:
-        return "<BooleanFlag>"
+        return "Flag"
 
     @property
     def nargs(self) -> NArgs:
@@ -354,7 +351,7 @@ class Counter(ParameterType[Number]):
 
     @property
     def name(self) -> str:
-        return f"<Counter type={self.value_type.__name__}>"
+        return self.value_type.__name__
 
     @property
     def nargs(self) -> NArgs:
@@ -379,10 +376,6 @@ class Counter(ParameterType[Number]):
 
 
 class Optional(TypeAdapter[ValueType | None]):
-    @property
-    def name(self) -> str:
-        return f"Optional[{self.type.name}]"
-
     def process_config(self, value: object) -> object | None:
         if value is None:
             return None
@@ -410,7 +403,7 @@ class SequenceType(ParameterType[Sequence[ValueType]]):
 
     @property
     def name(self) -> str:
-        return f"Sequence[{self.item_type.name}]"
+        return self.item_type.name
 
     @property
     def nargs(self) -> NArgs:
@@ -471,10 +464,6 @@ class List(SequenceType[ValueType], ParameterType[list[ValueType]]):
             return value
         return list(value)
 
-    @property
-    def name(self) -> str:
-        return f"list[{self.item_type.name}]"
-
     def format_value(self, value: Sequence[ValueType]) -> str:
         return f"[{super().format_value(value)}]"
 
@@ -502,10 +491,6 @@ class List(SequenceType[ValueType], ParameterType[list[ValueType]]):
 class Tuple(SequenceType[ValueType], ParameterType[list[ValueType]]):
     def _cast(self, value: Sequence[ValueType]) -> tuple[ValueType, ...]:
         return tuple(value)
-
-    @property
-    def name(self) -> str:
-        return f"list[{self.item_type.name}]"
 
     def format_value(self, value: Sequence[ValueType]) -> str:
         return f"[{super().format_value(value)}]"
@@ -577,7 +562,7 @@ class Dict(ParameterType[dict[KeyType, ValueType]]):
 
     @property
     def name(self) -> str:
-        return f"dict[{self.key_type.name}, {self.value_type.name}]"
+        return self.get_metavar(None)
 
     @property
     def nargs(self) -> NArgs:
@@ -585,9 +570,9 @@ class Dict(ParameterType[dict[KeyType, ValueType]]):
             return IntNArgs(1)
         return self._nargs
 
-    def get_metavar(self, ctx: Context[Any] | None) -> str | None:
-        key_metavar = self.key_type.get_metavar(ctx) or "KEY"
-        value_metavar = self.value_type.get_metavar(ctx) or "VALUE"
+    def get_metavar(self, ctx: Context[Any] | None) -> str:
+        key_metavar = self.key_type.get_metavar(ctx) or self.key_type.name
+        value_metavar = self.value_type.get_metavar(ctx) or self.value_type.name
         return f"{key_metavar}={value_metavar}"
 
     def parse_flags(self, flags: Sequence[str]) -> tuple[list[str], list[str]]:
@@ -685,7 +670,7 @@ class Dict(ParameterType[dict[KeyType, ValueType]]):
 class Path(Scalar[pathlib.Path]):
     @property
     def name(self) -> str:
-        return "path"
+        return "Path"
 
     def __init__(
         self,
@@ -783,7 +768,7 @@ class File(ParameterType[IO[Any]]):
 
     @property
     def name(self) -> str:
-        return f"File[{self.mode!r}]"
+        return "File"
 
     def format_value(self, value: IO[Any]) -> str:
         if hasattr(value, "name"):
@@ -859,10 +844,6 @@ class Validator(TypeAdapter[ValueType]):
         self.validator = validator
         super().__init__(type)
 
-    @property
-    def name(self) -> str:
-        return f"<Validator type={self.type.name} validator={self.validator!r}>"
-
     def validate(self, value: Any) -> TypeGuard[ValueType]:
         return self.type.validate(value) and self.validator(value)
 
@@ -876,10 +857,9 @@ class ChoicesValidator(TypeAdapter[ValueType]):
 
     @property
     def name(self) -> str:
-        choices = "|".join(str(choice) for choice in self.choices)
-        return f"<ChoicesValidator type={self.type.name} choices={choices!r}>"
+        return self.get_metavar(None)
 
-    def get_metavar(self, ctx: Context[Any] | None) -> str | None:
+    def get_metavar(self, ctx: Context[Any] | None) -> str:
         return "|".join(self.type.format_value(choice) for choice in self.choices)
 
     def validate(self, value: Any) -> TypeGuard[ValueType]:
@@ -910,15 +890,6 @@ class RangeValidator(TypeAdapter[NumberLike]):
         self.max_open = max_open
         self.clamp = clamp
         super().__init__(type)
-
-    @property
-    def name(self) -> str:
-        return (
-            f"<NumberRangeValidator type={self.type.name} "
-            "min={self.min} max={self.max} "
-            "min_open={self.min_open} max_open={self.max_open} "
-            "clamp={self.clamp}>"
-        )
 
     def lt_min(self, value: NumberLike) -> bool:
         if self.min is None:
@@ -977,13 +948,6 @@ class LengthValidator(TypeAdapter[SizedValueType]):
         super().__init__(type)
 
     @property
-    def name(self) -> str:
-        return (
-            f"<LengthValidator type={self.type.name} "
-            "min_length={self.min_length} max_length={self.max_length}>"
-        )
-
-    @property
     def nargs(self) -> NArgs:
         child_nargs: NArgs = self.type.nargs
 
@@ -1032,10 +996,6 @@ class GreedyAdaptor(TypeAdapter[ValueType,]):
         super().__init__(type)
 
     @property
-    def name(self) -> str:
-        return f"<GreedyAdaptor type={self.type.name} greedy={self.greedy}>"
-
-    @property
     def nargs(self) -> NArgs:
         child_nargs: NArgs = self.type.nargs
 
@@ -1053,7 +1013,7 @@ class GreedyAdaptor(TypeAdapter[ValueType,]):
 class HelpFlag(ParameterType[NoReturn]):
     @property
     def name(self) -> str:
-        return "<Help>"
+        return "Help"
 
     @property
     def nargs(self) -> NArgs:
