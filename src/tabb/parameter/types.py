@@ -891,6 +891,20 @@ class RangeValidator(TypeAdapter[NumberLike]):
         self.clamp = clamp
         super().__init__(type)
 
+    @property
+    def name(self) -> str:
+        if self.min is None:
+            op = "<" if self.max_open else "<="
+            return f"{self.type.name}{op}{self.max}"
+
+        if self.max is None:
+            op = ">" if self.min_open else ">="
+            return f"{self.type.name}{op}{self.min}"
+
+        lop = "<" if self.min_open else "<="
+        rop = "<" if self.max_open else "<="
+        return f"{self.min}{lop}{self.type.name}{rop}{self.max}"
+
     def lt_min(self, value: NumberLike) -> bool:
         if self.min is None:
             return False
