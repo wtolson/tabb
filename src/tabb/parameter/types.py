@@ -762,12 +762,14 @@ class Path(Scalar[pathlib.Path]):
 
 
 class File(ParameterType[IO[Any]]):
+    _Path: TypeAlias = str | bytes | PathLike[str] | PathLike[bytes]
+
     def __init__(
         self,
         mode: str = "r",
         encoding: str = "utf-8",
         errors: str = "strict",
-        default: int | str | bytes | PathLike[str] | PathLike[bytes] | None = None,
+        default: _Path | None = None,
         allow_overwrite: bool = True,
         close: bool | None = None,
     ) -> None:
@@ -798,7 +800,7 @@ class File(ParameterType[IO[Any]]):
     def matches(self, arg: ParameterArg) -> bool:
         return arg.value is not None
 
-    def open(self, value: str | None) -> IO[Any]:
+    def open(self, value: _Path | None) -> IO[Any]:
         if value is None:
             self.fail("File path cannot be None.")
 

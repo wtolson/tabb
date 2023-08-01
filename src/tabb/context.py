@@ -52,7 +52,7 @@ def get_current_context(silent: bool = ...) -> Context[Any] | None:
 
 def get_current_context(silent: bool = False) -> Context[Any] | None:
     try:
-        return cast("Context", _local.stack[-1])
+        return cast(Context[Any], _local.stack[-1])
     except (AttributeError, IndexError) as error:
         if not silent:
             raise RuntimeError("There is no active click context.") from error

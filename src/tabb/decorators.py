@@ -74,6 +74,7 @@ def group(
 
 def group(
     name: Callable[..., Any] | str | None = None,
+    *args: Any,
     **kwargs: Any,
 ) -> Group[Any] | Callable[[Callable[..., Any]], Group[Any]]:
     if callable(name):
@@ -83,6 +84,6 @@ def group(
         if isinstance(callback, Group):
             raise TypeError("Attempted to convert a callback into a group twice.")
 
-        return Group(callback, name=name, **kwargs)
+        return Group(callback, *args, name=name, **kwargs)
 
     return decorator

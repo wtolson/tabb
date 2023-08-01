@@ -10,7 +10,6 @@ from typing import Any, ParamSpec, TextIO, TypeVar, cast
 
 P = ParamSpec("P")
 R = TypeVar("R")
-D = TypeVar("D")
 
 
 def to_kebab(name: str) -> str:
@@ -98,15 +97,14 @@ def pacify_flush(file: TextIO) -> TextIO:
 
 def safecall(
     fn: Callable[P, R],
-    default: D = None,
     exceptions: tuple[type[BaseException], ...] = (Exception,),
-) -> Callable[P, R | D]:
+) -> Callable[P, R | None]:
     "Wraps a function so that it swallows exceptions."
 
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | D:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | None:
         try:
             return fn(*args, **kwargs)
         except exceptions:
-            return default
+            return None
 
     return update_wrapper(wrapper, fn)
