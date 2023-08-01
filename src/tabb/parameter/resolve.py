@@ -141,6 +141,8 @@ def _resolve_unknown(
     annotations: list[object],
     is_optional: bool,
 ) -> Parameter[Any]:
+    param: ArgumentParameter[Any] | OptionParameter[Any]
+
     if typing.get_origin(type_hint) is Context:
         return _get_depends(name, signature, Depends(get_context))
 
@@ -149,18 +151,23 @@ def _resolve_unknown(
             signature.kind in (signature.VAR_POSITIONAL, signature.VAR_KEYWORD)
             or signature.default is not signature.empty
         ):
-            return _resolve_option(
+            param = _resolve_option(
                 name, signature, type_hint, annotations, Option(), is_optional
             )
-
-        return _resolve_argument(
-            name, signature, type_hint, annotations, Argument(), is_optional
-        )
+        else:
+            param = _resolve_argument(
+                name, signature, type_hint, annotations, Argument(), is_optional
+            )
 
     except TypeError:
         if not callable(type_hint):
             raise
         return _get_depends(name, signature, Depends(type_hint))
+
+    if signature.default is not signature.empty:
+        param.default = signature.default
+
+    return param
 
 
 def _get_depends(
