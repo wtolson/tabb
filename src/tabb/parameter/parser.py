@@ -74,13 +74,16 @@ class ParserParameter(Parameter[ValueType]):
 
         return False
 
+    def get_default_metavar(self, ctx: Context[Any] | None = None) -> str:
+        return self.name.upper()
+
     def get_metavar(self, ctx: Context[Any] | None = None) -> str:
         if self.metavar is not None:
             return self.metavar
 
         metavar = self.type.get_metavar(ctx)
         if metavar is None:
-            metavar = self.name.upper()
+            metavar = self.get_default_metavar(ctx)
 
         return self.nargs.format_metavar(metavar)
 
@@ -266,6 +269,9 @@ class OptionParameter(ParserParameter[ValueType]):
         if isinstance(nargs := self.type.nargs, IntNArgs):
             return nargs
         raise ValueError("nargs for options may not be variadic.")
+
+    def get_default_metavar(self, ctx: Context[Any] | None = None) -> str:
+        return self.type.name.upper()
 
     def get_error_hint(self, ctx: Context[Any] | None = None) -> str:
         return " / ".join(f"'{flag}'" for flag in self.flags)
