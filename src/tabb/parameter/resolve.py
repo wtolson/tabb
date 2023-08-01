@@ -4,7 +4,7 @@ import inspect
 import pathlib
 import typing
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeGuard, cast
 
 from tabb.context import Context
 from tabb.missing import _MISSING_TYPE, MISSING
@@ -80,9 +80,15 @@ def _resolve_parameter(
     # Arguments with a default of None are automatically made optional
     is_optional, type_hint = get_optional_child_type(type_hint)
     type_hint, annotations = get_annotations(type_hint)
-    options = _resolve_options(signature, type_hint, annotations)
+    options = _resolve_options(annotations)
 
-    if isinstance(options, Argument):
+    if options is None:
+        return _resolve_unknown(name, signature, type_hint, annotations, is_optional)
+
+    if isinstance(options, Depends):
+        return _get_depends(name, signature, options)
+
+    elif isinstance(options, Argument):
         param = _resolve_argument(
             name, signature, type_hint, annotations, options, is_optional
         )
@@ -91,9 +97,6 @@ def _resolve_parameter(
         param = _resolve_option(
             name, signature, type_hint, annotations, options, is_optional
         )
-
-    elif isinstance(options, Depends):
-        return _get_depends(name, signature, options)
 
     else:
         msg = f"Unexpected options type: {options!r}."
@@ -128,6 +131,44 @@ def _resolve_parameter(
         param.metavar = options.metavar
 
     return param
+
+
+def _resolve_unknown(
+    name: str,
+    signature: inspect.Parameter,
+    type_hint: object,
+    annotations: list[object],
+    is_optional: bool,
+) -> Parameter[Any]:
+    if typing.get_origin(type_hint) is Context:
+        return _get_depends(name, signature, Depends(get_context))
+
+    try:
+        if (
+            signature.kind in (signature.VAR_POSITIONAL, signature.VAR_KEYWORD)
+            or signature.default is not signature.empty
+        ):
+            return _resolve_option(
+                name, signature, type_hint, annotations, Option(), is_optional
+            )
+
+        return _resolve_argument(
+            name, signature, type_hint, annotations, Argument(), is_optional
+        )
+
+    except TypeError:
+        if not callable(type_hint):
+            raise
+        return _get_depends(name, signature, Depends(type_hint))
+
+
+def _get_depends(
+    name: str,
+    signature: inspect.Parameter,
+    options: Depends[Any],
+) -> DependsParameter[Any]:
+    _, kind = _resolve_parameter_kind(signature, AnyType())
+    return DependsParameter(name, kind, options.dependency, use_cache=options.use_cache)
 
 
 def _resolve_argument(
@@ -170,15 +211,6 @@ def _resolve_option(
     return option
 
 
-def _get_depends(
-    name: str,
-    signature: inspect.Parameter,
-    options: Depends[Any],
-) -> DependsParameter[Any]:
-    _, kind = _resolve_parameter_kind(signature, AnyType())
-    return DependsParameter(name, kind, options.dependency, use_cache=options.use_cache)
-
-
 def _get_argument_type(
     type_hint: object,
     options: Argument[Any],
@@ -216,14 +248,7 @@ def _get_argument_type(
     if type_hint is bool:
         return Bool()
 
-    if (result := _resolve_special_types(type_hint)) is not None:
-        return result
-
-    if callable(type_hint):
-        return Scalar(type_hint)
-
-    msg = f"Unexpted type: {type_hint!r}."
-    raise TypeError(msg)
+    return _resolve_type(type_hint)
 
 
 def _resolve_option_type(
@@ -263,14 +288,7 @@ def _resolve_option_type(
     if type_hint is bool:
         return Flag()
 
-    if (result := _resolve_special_types(type_hint)) is not None:
-        return result
-
-    if callable(type_hint):
-        return Scalar(type_hint)
-
-    msg = f"Unexpted type: {type_hint!r}."
-    raise TypeError(msg)
+    return _resolve_type(type_hint)
 
 
 def _resolve_parameter_kind(
@@ -295,19 +313,34 @@ def _resolve_parameter_kind(
     if signature.kind == signature.POSITIONAL_OR_KEYWORD:
         return parameter_type, ParameterKind.POSITIONAL_OR_KEYWORD
 
-    msg = f"Unexpted parameter kind: {signature.kind!r}."
+    msg = f"Unexpected parameter kind: {signature.kind!r}."
     raise TypeError(msg)
 
 
-def _resolve_special_types(
-    type_hint: object,
-) -> ParameterType[Any] | None:
+def _is_scalar_type(type_hint: object) -> TypeGuard[Callable[[str], Any]]:
+    try:
+        cast(Callable[[str], Any], type_hint)("")
+
+    except TypeError:
+        return False
+
+    except ValueError:
+        pass
+
+    return True
+
+
+def _resolve_type(type_hint: object) -> ParameterType[Any]:
     base_type = get_base_type(type_hint)
 
     if base_type is pathlib.Path:
         return Path()
 
-    return None
+    if _is_scalar_type(type_hint):
+        return Scalar(type_hint)
+
+    msg = f"Unexpected type: {type_hint!r}."
+    raise TypeError(msg)
 
 
 def _resolve_validators(
@@ -361,19 +394,10 @@ def _resolve_validators(
 
 
 def _resolve_options(
-    signature: inspect.Parameter, type_hint: object, annotations: list[object]
-) -> Argument[Any] | Option[Any] | Depends[Any]:
+    annotations: list[object],
+) -> Argument[Any] | Option[Any] | Depends[Any] | None:
     for annotation in annotations:
         if isinstance(annotation, (Argument | Option | Depends)):
             return annotation
 
-    if typing.get_origin(type_hint) is Context:
-        return Depends(get_context)
-
-    if (
-        signature.kind in (signature.VAR_POSITIONAL, signature.VAR_KEYWORD)
-        or signature.default is not signature.empty
-    ):
-        return Option()
-
-    return Argument()
+    return None
