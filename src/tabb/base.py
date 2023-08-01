@@ -26,6 +26,7 @@ from tabb.formatter import HelpFormatter, make_default_short_help
 from tabb.parameter import OptionParameter, ParameterGroup
 from tabb.parameter.types import HelpFlag
 from tabb.parser import parse_args
+from tabb.scheduler import Scheduler
 from tabb.utils import detect_program_name, pacify_flush
 
 T = TypeVar("T")
@@ -75,6 +76,7 @@ class BaseCommand(abc.ABC, Generic[T]):
         *,
         auto_config_prefix: str | None = None,
         auto_envvar_prefix: str | None = None,
+        scheduler: Scheduler | None = None,
     ) -> Context[T]:
         return Context(
             name=name,
@@ -85,6 +87,7 @@ class BaseCommand(abc.ABC, Generic[T]):
             parent=parent,
             auto_config_prefix=auto_config_prefix,
             auto_envvar_prefix=auto_envvar_prefix,
+            scheduler=scheduler,
         )
 
     def get_name(self) -> str | None:
@@ -269,6 +272,7 @@ class BaseCommand(abc.ABC, Generic[T]):
         config: Mapping[str, object] | None = None,
         auto_config_prefix: str | None = None,
         auto_envvar_prefix: str | None = None,
+        scheduler: Scheduler | None = None,
     ) -> T:
         if args is None:
             args = sys.argv[1:]
@@ -291,7 +295,11 @@ class BaseCommand(abc.ABC, Generic[T]):
             config,
             auto_config_prefix=auto_config_prefix,
             auto_envvar_prefix=auto_envvar_prefix,
+            scheduler=scheduler,
         )
+
+        if scheduler is not None:
+            ctx.call_on_close(scheduler.close)
 
         with ctx:
             return self.invoke(ctx)
@@ -305,6 +313,7 @@ class BaseCommand(abc.ABC, Generic[T]):
         config: Mapping[str, object] | None = None,
         auto_config_prefix: str | None = None,
         auto_envvar_prefix: str | None = None,
+        scheduler: Scheduler | None = None,
     ) -> NoReturn:
         try:
             try:
@@ -315,6 +324,7 @@ class BaseCommand(abc.ABC, Generic[T]):
                     config=config,
                     auto_config_prefix=auto_config_prefix,
                     auto_envvar_prefix=auto_envvar_prefix,
+                    scheduler=scheduler,
                 )
                 raise Exit()
 
@@ -350,6 +360,7 @@ class BaseCommand(abc.ABC, Generic[T]):
         config: Mapping[str, object] | None = None,
         auto_config_prefix: str | None = None,
         auto_envvar_prefix: str | None = None,
+        scheduler: Scheduler | None = None,
     ) -> NoReturn:
         self.main(
             args,
@@ -358,4 +369,5 @@ class BaseCommand(abc.ABC, Generic[T]):
             config=config,
             auto_config_prefix=auto_config_prefix,
             auto_envvar_prefix=auto_envvar_prefix,
+            scheduler=scheduler,
         )

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
-from typing import Generic, ParamSpec, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import Any, Generic, ParamSpec, TypeVar
 
 from tabb.base import BaseCommand
 from tabb.callback import create_callback
@@ -17,7 +17,7 @@ T = TypeVar("T")
 class Command(BaseCommand[T], Generic[P, T]):
     def __init__(
         self,
-        callback: str | Callable[P, T],
+        callback: str | Callable[P, T | Coroutine[Any, Any, T]],
         *,
         add_help_option: bool = True,
         deprecated: bool = False,

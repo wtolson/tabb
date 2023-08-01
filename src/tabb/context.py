@@ -19,6 +19,7 @@ from typing import (
 from tabb.config import Config
 from tabb.exceptions import Abort, Exit, UsageError
 from tabb.formatter import HelpFormatter
+from tabb.scheduler import AsyncScheduler, Scheduler
 from tabb.utils import to_kebab, to_snake
 
 if TYPE_CHECKING:
@@ -81,6 +82,7 @@ class Context(Generic[T]):
         parent: Context[Any] | None = None,
         auto_config_prefix: str | None = None,
         auto_envvar_prefix: str | None = None,
+        scheduler: Scheduler | None = None,
     ) -> None:
         self.name = name
         self.args = args
@@ -89,6 +91,8 @@ class Context(Generic[T]):
         self.command = command
         self.parent = parent
         self.values: dict[Parameter[Any], ParameterValue[Any]] = {}
+        self._depth = 0
+        self._exit_stack = ExitStack()
 
         if auto_config_prefix is None:
             if parent is not None and parent.auto_config_prefix is not None:
@@ -117,8 +121,13 @@ class Context(Generic[T]):
         else:
             self.dependencies = parent.dependencies
 
-        self._depth = 0
-        self._exit_stack = ExitStack()
+        if scheduler is not None:
+            self.scheduler = scheduler
+        elif parent is not None:
+            self.scheduler = parent.scheduler
+        else:
+            self.scheduler = AsyncScheduler()
+            self.call_on_close(self.scheduler.close)
 
     @property
     def command_path(self) -> str:

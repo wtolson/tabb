@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Coroutine, Iterable, Mapping
 from typing import Any, Generic, ParamSpec, TypeVar, cast
 
 from tabb.context import Context
@@ -17,7 +17,7 @@ CALLBACK_ATTR = "__callbacks__"
 
 
 def create_callback(
-    callback: str | Callable[P, T],
+    callback: str | Callable[P, T | Coroutine[Any, Any, T]],
     *,
     import_dependencies: str | None = None,
     localns: dict[str, Any] | None = None,
@@ -54,7 +54,7 @@ def register_callback(
 
 @dataclasses.dataclass(frozen=True)
 class Callback(Generic[P, T]):
-    fn: Callable[P, T]
+    fn: Callable[P, T | Coroutine[Any, Any, T]]
     params: tuple[Parameter[Any], ...]
 
     @property
@@ -62,7 +62,10 @@ class Callback(Generic[P, T]):
         return self.fn.__name__
 
     def __init__(
-        self, fn: Callable[P, T], *, localns: dict[str, Any] | None = None
+        self,
+        fn: Callable[P, T | Coroutine[Any, Any, T]],
+        *,
+        localns: dict[str, Any] | None = None,
     ) -> None:
         object.__setattr__(self, "fn", fn)
         object.__setattr__(self, "params", tuple(resolve_params(fn, localns=localns)))
@@ -75,7 +78,7 @@ class Callback(Generic[P, T]):
             callback(ctx)
 
         args, kwargs = self.align_parameters(ctx)
-        return self.fn(*args, **kwargs)
+        return ctx.scheduler.get(self.fn(*args, **kwargs))
 
     def get_params(self, ctx: Context[Any]) -> list[Parameter[Any]]:
         result: list[Parameter[Any]] = []
