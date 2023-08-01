@@ -4,7 +4,7 @@ import inspect
 import pathlib
 import typing
 from collections.abc import Callable
-from typing import Any, TypeGuard, cast
+from typing import Any, cast
 
 from tabb.context import Context
 from tabb.missing import _MISSING_TYPE, MISSING
@@ -325,7 +325,7 @@ def _resolve_type(type_hint: object) -> ParameterType[Any]:
         return Path()
 
     if issubclass(base_type, str | bytes | int | float | Secret):
-        return Scalar(type_hint)
+        return Scalar(cast(Callable[[str], Any], type_hint))
 
     msg = f"Unexpected type: {type_hint!r}."
     raise TypeError(msg)
@@ -345,14 +345,14 @@ def _resolve_validators(
             )
 
         elif isinstance(annotation, Range):
-            cast = get_base_type(type_hint)
-            if cast not in (int, float):
-                msg = f"Cannot use min/max with type {cast!r}."
+            base_type = get_base_type(type_hint)
+            if base_type not in (int, float):
+                msg = f"Cannot use min/max with type {base_type!r}."
                 raise TypeError(msg)
 
             parameter_type = RangeValidator(
                 type=parameter_type,
-                cast=cast,
+                cast=base_type,
                 min=annotation.min,
                 max=annotation.max,
                 min_open=annotation.min_open,
