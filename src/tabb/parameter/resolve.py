@@ -46,6 +46,7 @@ from tabb.types import (
     Matches,
     Option,
     Range,
+    Secret,
     Validate,
 )
 from tabb.utils import to_kebab
@@ -317,26 +318,13 @@ def _resolve_parameter_kind(
     raise TypeError(msg)
 
 
-def _is_scalar_type(type_hint: object) -> TypeGuard[Callable[[str], Any]]:
-    try:
-        cast(Callable[[str], Any], type_hint)("")
-
-    except TypeError:
-        return False
-
-    except ValueError:
-        pass
-
-    return True
-
-
 def _resolve_type(type_hint: object) -> ParameterType[Any]:
     base_type = get_base_type(type_hint)
 
     if base_type is pathlib.Path:
         return Path()
 
-    if _is_scalar_type(type_hint):
+    if issubclass(base_type, str | bytes | int | float | Secret):
         return Scalar(type_hint)
 
     msg = f"Unexpected type: {type_hint!r}."
