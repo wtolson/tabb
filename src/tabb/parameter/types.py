@@ -676,7 +676,7 @@ class Path(Scalar[pathlib.Path]):
         allow_overwrite: bool = True,
         dir_okay: bool = True,
         executable: bool = False,
-        exists: bool = False,
+        exists: bool | None = None,
         file_okay: bool = True,
         readable: bool = False,
         resolve_path: bool = False,
@@ -722,8 +722,8 @@ class Path(Scalar[pathlib.Path]):
         if value == pathlib.Path("-"):
             return self._validate_dash()
 
-        if self.exists and not value.exists():
-            self.fail("Path must exist.")
+        if self.exists is not None and value.exists() != self.exists:
+            self.fail(f"Path must {'exist' if self.exists else 'not exist'}.")
 
         if not self.file_okay and value.is_file():
             self.fail("Path must not be a file.")
