@@ -796,7 +796,10 @@ class File(ParameterType[IO[Any]]):
                 return sys.stdin.buffer
             return sys.stdin
 
-        result = open(value, self.mode, encoding=self.encoding, errors=self.errors)
+        if "b" in self.mode:
+            result = open(value, self.mode)
+        else:
+            result = open(value, self.mode, encoding=self.encoding, errors=self.errors)
 
         from tabb.context import get_current_context
 
